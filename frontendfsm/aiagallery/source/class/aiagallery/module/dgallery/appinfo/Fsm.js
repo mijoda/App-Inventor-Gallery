@@ -70,11 +70,9 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Fsm",
           },
 
           "execute" :
-          {
-            
-            "submitCommentBtn" : 
-              "Transition_Idle_to_AwaitRpcResult_via_submit_comment"
-          },
+            // For now, both submit and reply buttons take the same transition: add a new comment
+            "Transition_Idle_to_AwaitRpcResult_via_add_comment", 
+
           "appearComments" :
           {
             "ignoreMe" : 
@@ -167,35 +165,31 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Fsm",
       /*
        * Transition: Idle to AwaitRpcResult
        *
-       * Cause: submitCommentBtn has been pressed
+       * Cause: submitCommentBtn or replyCommentBtn has been pressed
        *
        * Action:
        *  Add a comment to the database and to the GUI
        */
 
       trans = new qx.util.fsm.Transition(
-        "Transition_Idle_to_AwaitRpcResult_via_submit_comment",
+        "Transition_Idle_to_AwaitRpcResult_via_add_comment",
       {
         "nextState" : "State_AwaitRpcResult",
 
         "context" : this,
-
+	
         "ontransition" : function(fsm, event)
         {
           // Get the event data
-          var             commentWrapper;
-          var             appId;
-          var             commentInput;
-          var             guiWrapper;
-          var             request;
-
-          commentWrapper = fsm.getObject("commentWrapper");
-          appId = commentWrapper.getUserData("appId");
-          commentInput = commentWrapper.getUserData("commentInput");
-          guiWrapper = fsm.getObject("guiWrapper");
+          var commentWrapper = fsm.getObject("commentWrapper");
+          var appId = commentWrapper.getUserData("appId");
+          var commentInput = commentWrapper.getUserData("commentInput");
+          var commentParent = commentWrapper.getUserData("commentParent");
+          alert("Transition_Idle_to_AwaitRpcResult_via_add_comment: parent=" + commentParent);
+          var guiWrapper = fsm.getObject("guiWrapper");
 
           // Issue the remote procedure call to execute the query
-          request =
+          var request =
             this.callRpc(fsm,
                          "aiagallery.features",
                          "addComment",
@@ -205,7 +199,7 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Fsm",
                          //The text of the comment 
                          commentInput.getValue(), 
                          //The parent thread's UID
-                         null
+                         commentParent
                          ]);
 
           // When we get the result, we'll need to know what type of request
@@ -213,6 +207,7 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Fsm",
           request.setUserData("requestType", "addComment");
           request.setUserData("commentString", commentInput);
           request.setUserData("guiInfo", guiWrapper);
+          request.setUserData("commentWrapper", commentWrapper);
 
         }
       });

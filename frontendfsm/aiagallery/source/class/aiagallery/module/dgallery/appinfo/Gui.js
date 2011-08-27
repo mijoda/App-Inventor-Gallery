@@ -6,6 +6,14 @@
  *   EPL : http://www.eclipse.org/org/documents/epl-v10.php
  */
 
+/* [8/27/2011] Mike & lyn todo list: 
+ * 1. Remove duplication between addComment and getComment handling
+ * 2. Show comments threads as real trees rather than tree linearization
+ * 3. Show individual comments in a more pleasing way. 
+ * 4. Put reply text in popup field near reply button?
+ * 5. Change single line text fields to text areas?
+ */
+
 /**
  * The graphical user interface for the individual application pages
  */
@@ -145,7 +153,6 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
         var             vbox;
         var             splitpane;
         var             radiogroup;
-        var             cpanel;
         var             text;
         var             label;
 
@@ -198,6 +205,20 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
        // Sets the app's uid as a variable which can be passed to the FSM
        var appId = result.uid;
 
+       // Adds the textfield for entering a comment
+       // Do this before getComments event so can refer to it when processing getComment
+       var commentInput = new qx.ui.form.TextField();
+       commentInput.setPlaceholder("Type your comment here:");
+       var allCommentsBox = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+
+       // Wrapping everything relevant to a comment in one object,
+       // to be passed to the FSM
+       // Do this before getComments event so can refer to it when processing getComment
+       var commentWrapper = new qx.core.Object();
+       commentWrapper.setUserData("appId", appId);
+       commentWrapper.setUserData("commentInput", commentInput);
+       fsm.addObject("commentWrapper", commentWrapper);
+
        // Creates an object on which to call the getComments event, in order
        // to add them to the GUI
        var emptyObject = new qx.core.Object();
@@ -205,31 +226,21 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
        fsm.addObject("ignoreMe", emptyObject);
        fsm.fireImmediateEvent("appearComments", emptyObject, null);
 
-       // Adds the textfield for entering a comment
-       var commentInput = new qx.ui.form.TextField();
-       commentInput.setPlaceholder("Type your comment here:");
-       var allCommentsBox = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-
-       // Wrapping everything relevant to a comment in one object,
-       // to be passed to the FSM
-       var commentWrapper = new qx.core.Object();
-       commentWrapper.setUserData("appId", appId);
-       commentWrapper.setUserData("commentInput", commentInput);
-       fsm.addObject("commentWrapper", commentWrapper);
-
        // Adds the button for submitting a comment to the FSM
        var submitCommentBtn = new qx.ui.form.Button("Submit Comment");
        fsm.addObject("submitCommentBtn", submitCommentBtn);
        submitCommentBtn.addListener(
          "execute", 
          function(e) 
-         {
-           var comment = commentInput.getValue();
+         { alert("Pressed submit comment button");
+           var comment = commentInput.getValue(); // Current string in comment text file is the comment
            // Is the submitted comment null, or empty spaces?
            if ((comment != null) 
               && ((comment.replace(/\s/g, '')) != ""))
            // No: submit it
            {
+             // Submit is for top-level comments, which have no parent.
+             commentWrapper.setUserData("commentParent", null); 
              fsm.eventListener(e);
            }
            // Yes: clear input box and do nothing
@@ -262,7 +273,6 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
         // to be changed after the fsm call. This object is passed to the FSM.
         var guiWrapper = new qx.core.Object();
         guiWrapper.setUserData("vbox", vbox);
-        guiWrapper.setUserData("cpanel", cpanel);
         guiWrapper.setUserData("radiogroup", radiogroup);
         guiWrapper.setUserData("commentInput", commentInput);
         guiWrapper.setUserData("allCommentsBox", allCommentsBox);
@@ -309,56 +319,85 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
         
       case "addComment":
         // Get the result data. It's an object with all of the application info.
+	// Result contains 6 fields:
+        //   text: actual text (string) of comment
+        //   visitor: id (display string) of user who made comment
+        //   app: id of current app
+        //   treeId: treeId of added comment, string of base-160 chars, length is multiple of 4.
+        //   numChildren: number of children for this comment, which should be 0 because we just added it. 
+        //   timestamp: string for time comment added to database.
         result = response.data.result;
+        // alert("result2=" + JSON.stringify(result));
 
         // Gets the objects sent from the GUI to the FSM. 
         var guiInfo = rpcRequest.getUserData("guiInfo");
+        var commentWrapper = rpcRequest.getUserData("commentWrapper");
         var vbox = guiInfo.getUserData("vbox");
-        var cpanel = guiInfo.getUserData("cpanel");
         var radiogroup = guiInfo.getUserData("radiogroup");
         var commentInput = guiInfo.getUserData("commentInput");
         var allCommentsBox = guiInfo.getUserData("allCommentsBox");
-        var newComment;
-        var commentAuthor;
-        var commentTime;
-        var ty; 
-        var replyBtn;
-        var hbox;
-        var vbox2;
-        var label2;
-
-        ty = this.self(arguments).typeOf(result);
+        var ty = this.self(arguments).typeOf(result);
 
         // Adds the new comment to the GUI
-        // Currently, the 'reply' and 'flag as inappropiate' buttons 
-        // do not do anything
+        // Currently, the 'flag as inappropiate' button does not do anything
         if (ty != null) 
         {
-          newComment = result["text"];
+          var newComment = result["text"];
+          var treeId = result["treeId"];
           if (newComment != null) 
           {
-            commentAuthor = result["visitor"];
-            commentTime = result["timestamp"];
-            cpanel = new collapsablepanel.Panel(commentAuthor + ": " + newComment);
+            var commentAuthor = result["visitor"];
+            var commentTime = result["timestamp"];
+            var treeId = result["treeId"];
+            var cpanel = new collapsablepanel.Panel(commentAuthor + ": [" + treeId + "] " + newComment);
             cpanel.setGroup(radiogroup);
             
-            replyBtn = new qx.ui.form.Button("reply");
-            label = new qx.ui.basic.Label(newComment);
+            var replyBtn = new qx.ui.form.Button("reply");
+            replyBtn.addListener(
+              "execute", 
+              function(e) 
+              {
+                  alert("Pressed reply comment button for " + treeId);
+                  // Current string in comment text file is the reply
+                  // Perhaps in the future, replies should appear near reply button?
+                  var comment = commentInput.getValue(); 
+                  // Is the comment null or empty spaces?
+                  alert("Comment is " + comment);
+                  if ((comment != null) 
+                      && ((comment.replace(/\s/g, '')) != ""))
+                      // No: submit it
+                      {
+                          // Reply has non-null parent
+                          alert("Setting commentParent");
+                          alert("commentWrapper is " + JSON.stringify(commentWrapper));
+                          commentWrapper.setUserData("commentParent", treeId); 
+                          alert("Calling event listener");
+                          fsm.eventListener(e);
+                      }
+                  // Yes: clear input box and do nothing
+                  else
+                      {
+                          commentInput.setValue(null);
+                      }
+              },
+              fsm);
+
+            var label = new qx.ui.basic.Label(newComment);
             label.set(
               {
                 rich : true,
                 wrap : true,
                 selectable: true // Allow user to select text
               });
-            label2 = new qx.ui.basic.Label("   posted: " + commentTime);
+            var label2 = new qx.ui.basic.Label("   posted: " + commentTime);
             label2.set(
               {
                 rich : true,
                 wrap : true,
                 selectable: true // Allow user to select text
               });
-            hbox = new qx.ui.container.Composite(new qx.ui.layout.HBox());
-            vbox2 = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            var hbox = new qx.ui.container.Composite(new qx.ui.layout.HBox());
+            var vbox2 = new qx.ui.container.Composite(new qx.ui.layout.VBox());
             hbox.add(replyBtn);
             vbox2.add(label);
             hbox.add(label2);
@@ -380,9 +419,11 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
 
         // Gets back the objects passed from the GUI to the FSM
         var guiInfo = rpcRequest.getUserData("guiInfo");
+        var commentWrapper = rpcRequest.getUserData("commentWrapper");
         var vbox = guiInfo.getUserData("vbox");       
         var radiogroup = guiInfo.getUserData("radiogroup");
         var allCommentsBox = guiInfo.getUserData("allCommentsBox");
+        var commentInput = guiInfo.getUserData("commentInput");
         var ty;
         var len
         var newComment;
@@ -405,14 +446,44 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
             for (var i = 0; i < result.length; ++i)
             {
               newComment = result[i]["text"];
+              var treeId = result[i]["treeId"];
               if (newComment != null)
               {
                 commentAuthor = result[i]["visitor"];
                 commentTime = result[i]["timestamp"];
-                cpanel = new collapsablepanel.Panel(commentAuthor + ": " + newComment);
+                cpanel = new collapsablepanel.Panel(commentAuthor + ": [" + treeId + "] " + newComment);
                 cpanel.setGroup(radiogroup);
 
                 replyBtn = new qx.ui.form.Button("reply");
+                replyBtn.addListener(
+                  "execute", 
+                  function(e) 
+                  {
+                      alert("Pressed reply comment button for " + treeId);
+                      // Current string in comment text file is the reply
+                      // Perhaps in the future, replies should appear near reply button?
+                      var comment = commentInput.getValue(); 
+                      alert("Comment is " + comment);
+                      // Is the comment null or empty spaces?
+                      if ((comment != null) 
+                          && ((comment.replace(/\s/g, '')) != ""))
+                          // No: submit it
+                      {
+                          // Reply has non-null parent
+                          alert("Setting commentParent");
+                          alert("commentWrapper is " + JSON.stringify(commentWrapper));
+                          commentWrapper.setUserData("commentParent", treeId); 
+                          alert("Calling event listener");
+                          fsm.eventListener(e);
+                      }
+                      // Yes: clear input box and do nothing
+                      else
+                      {
+                          commentInput.setValue(null);
+                      }
+                  },
+                  fsm);
+
                 label = new qx.ui.basic.Label(newComment);
                 label.set(
                   {
