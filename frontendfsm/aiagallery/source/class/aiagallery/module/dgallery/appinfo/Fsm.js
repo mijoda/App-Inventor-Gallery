@@ -259,6 +259,7 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Fsm",
           // we made.
           request.setUserData("requestType", "getComments");
           request.setUserData("guiInfo", guiWrapper);
+          request.setUserData("commentWrapper", commentWrapper);
 
         }
       });

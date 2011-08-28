@@ -369,7 +369,8 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
                       {
                           // Reply has non-null parent
                           alert("Setting commentParent");
-                          alert("commentWrapper is " + JSON.stringify(commentWrapper));
+                          // Next line error: TypeError: JSON.stringify cannot serialize cyclic structures.
+                          // alert("commentWrapper is " + JSON.stringify(commentWrapper));
                           commentWrapper.setUserData("commentParent", treeId); 
                           alert("Calling event listener");
                           fsm.eventListener(e);
@@ -471,7 +472,8 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
                       {
                           // Reply has non-null parent
                           alert("Setting commentParent");
-                          alert("commentWrapper is " + JSON.stringify(commentWrapper));
+                          // Next line error: TypeError: JSON.stringify cannot serialize cyclic structures.
+                          //alert("commentWrapper is " + JSON.stringify(commentWrapper));
                           commentWrapper.setUserData("commentParent", treeId); 
                           alert("Calling event listener");
                           fsm.eventListener(e);
