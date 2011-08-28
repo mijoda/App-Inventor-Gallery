@@ -133,6 +133,79 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
       var             result; 
       var             commentData = rpcRequest.getUserData("commentData");
 
+      // DOCUMENT THIS FUNCTION
+//      var addCommentPanelClosure : function(comment, commentInputField)
+      function addCommentPanelClosure(comment, commentInputField)
+      {
+        return function()
+        {
+          // Comment info to be displayed
+          var commentText = comment["text"];
+          var commentAuthor = comment["visitor"];
+          var commentTime = comment["timestamp"];
+          var treeId = comment["treeId"];
+          // New cpanel to be returned
+          var cpanel = new collapsablepanel.Panel(commentAuthor + ": [" + treeId + "] " + commentText);
+          cpanel.setGroup(radiogroup);
+          
+          var replyBtn = new qx.ui.form.Button("reply");
+          replyBtn.addListener(
+            "execute", 
+            function(e) 
+            {
+              alert("Pressed reply comment button for " + treeId);
+              // Current string in comment text file is the reply
+              // Perhaps in the future, replies should appear near reply button?
+              var enteredComment = commentInputField.getValue(); 
+              // Is the comment null or empty spaces?
+              alert("Comment is " + enteredComment);
+              if ((enteredComment != null) 
+                  && ((enteredComment.replace(/\s/g, '')) != ""))
+                // No: submit it
+              {
+                // Reply has non-null parent
+                alert("Setting commentParent");
+                // Next line error: TypeError: JSON.stringify cannot serialize cyclic structures.
+                // alert("commentWrapper is " + JSON.stringify(commentWrapper));
+                commentWrapper.setUserData("commentParent", treeId); 
+                alert("Calling event listener");
+                fsm.eventListener(e);
+              }
+              // Yes: clear input box and do nothing
+              else
+              {
+                commentInputField.setValue(null);
+              }
+            },
+            fsm);
+
+          var textLabel = new qx.ui.basic.Label(commentText);
+          textLabel.set(
+            {
+              rich : true,
+              wrap : true,
+              selectable: true // Allow user to select text
+            });
+          var timeLabel = new qx.ui.basic.Label("   posted: " + commentTime);
+          timeLabel.set(
+            {
+              rich : true,
+              wrap : true,
+              selectable: true // Allow user to select text
+            });
+          var hbox = new qx.ui.container.Composite(new qx.ui.layout.HBox());
+          var vbox2 = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+          hbox.add(replyBtn);
+          vbox2.add(textLabel);
+          hbox.add(timeLabel);
+          vbox2.add(hbox);
+          cpanel.add(vbox2);
+          allCommentsBox.addAt(cpanel, 0, null);
+          vbox.add(allCommentsBox);  //??????????????????
+        }
+      }
+
+
       if (response.type == "failed")
       {
         // FIXME: Add the failure to someplace reasonable, instead of alert()
@@ -318,8 +391,8 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
         break;
         
       case "addComment":
-        // Get the result data. It's an object with all of the application info.
-	// Result contains 6 fields:
+        // Get the result data, which is a comment object.
+	// Comment objects consist of 6 fields:
         //   text: actual text (string) of comment
         //   visitor: id (display string) of user who made comment
         //   app: id of current app
@@ -327,189 +400,58 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
         //   numChildren: number of children for this comment, which should be 0 because we just added it. 
         //   timestamp: string for time comment added to database.
         result = response.data.result;
+
         // alert("result2=" + JSON.stringify(result));
 
-        // Gets the objects sent from the GUI to the FSM. 
+        // Retrieve objects passed from GUI to FSM
         var guiInfo = rpcRequest.getUserData("guiInfo");
         var commentWrapper = rpcRequest.getUserData("commentWrapper");
         var vbox = guiInfo.getUserData("vbox");
         var radiogroup = guiInfo.getUserData("radiogroup");
         var commentInput = guiInfo.getUserData("commentInput");
         var allCommentsBox = guiInfo.getUserData("allCommentsBox");
-        var ty = this.self(arguments).typeOf(result);
 
         // Adds the new comment to the GUI
-        // Currently, the 'flag as inappropiate' button does not do anything
+        // Currently, the 'flag as inappropiate' button does not exist!
+        var ty = this.self(arguments).typeOf(result);
         if (ty != null) 
         {
           var newComment = result["text"];
           var treeId = result["treeId"];
-          if (newComment != null) 
-          {
-            var commentAuthor = result["visitor"];
-            var commentTime = result["timestamp"];
-            var treeId = result["treeId"];
-            var cpanel = new collapsablepanel.Panel(commentAuthor + ": [" + treeId + "] " + newComment);
-            cpanel.setGroup(radiogroup);
-            
-            var replyBtn = new qx.ui.form.Button("reply");
-            replyBtn.addListener(
-              "execute", 
-              function(e) 
-              {
-                  alert("Pressed reply comment button for " + treeId);
-                  // Current string in comment text file is the reply
-                  // Perhaps in the future, replies should appear near reply button?
-                  var comment = commentInput.getValue(); 
-                  // Is the comment null or empty spaces?
-                  alert("Comment is " + comment);
-                  if ((comment != null) 
-                      && ((comment.replace(/\s/g, '')) != ""))
-                      // No: submit it
-                      {
-                          // Reply has non-null parent
-                          alert("Setting commentParent");
-                          // Next line error: TypeError: JSON.stringify cannot serialize cyclic structures.
-                          // alert("commentWrapper is " + JSON.stringify(commentWrapper));
-                          commentWrapper.setUserData("commentParent", treeId); 
-                          alert("Calling event listener");
-                          fsm.eventListener(e);
-                      }
-                  // Yes: clear input box and do nothing
-                  else
-                      {
-                          commentInput.setValue(null);
-                      }
-              },
-              fsm);
+          if (newComment != null)
 
-            var label = new qx.ui.basic.Label(newComment);
-            label.set(
-              {
-                rich : true,
-                wrap : true,
-                selectable: true // Allow user to select text
-              });
-            var label2 = new qx.ui.basic.Label("   posted: " + commentTime);
-            label2.set(
-              {
-                rich : true,
-                wrap : true,
-                selectable: true // Allow user to select text
-              });
-            var hbox = new qx.ui.container.Composite(new qx.ui.layout.HBox());
-            var vbox2 = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-            hbox.add(replyBtn);
-            vbox2.add(label);
-            hbox.add(label2);
-            vbox2.add(hbox);
-            cpanel.add(vbox2);
-            allCommentsBox.addAt(cpanel, 0, null);
-            vbox.add(allCommentsBox);
+            // DOES THIS WORK, AND IS THE SYNTAX TOO OBSCURE??
+            // PARENS AROUND addComment... REQUIRED?
+          {
+            (addCommentPanelClosure(result, commentInput))();
           }
-        }
+        };    
         commentInput.setValue(null);
         break;
+
 
       case "getComments":
         // Get the result data. It's an object with all of the application info.
         result = response.data.result;
 
-        // This alert shows that addComments is reusing uids 
-        //alert("getComments result is: " + this.self(arguments).stringOf(result));
-
-        // Gets back the objects passed from the GUI to the FSM
+        // Retrieve objects passed from GUI to FSM
         var guiInfo = rpcRequest.getUserData("guiInfo");
         var commentWrapper = rpcRequest.getUserData("commentWrapper");
         var vbox = guiInfo.getUserData("vbox");       
         var radiogroup = guiInfo.getUserData("radiogroup");
         var allCommentsBox = guiInfo.getUserData("allCommentsBox");
         var commentInput = guiInfo.getUserData("commentInput");
-        var ty;
-        var len
-        var newComment;
-        var commentAuthor;
-        var commentTime;
-        var replyBtn;
-        var hbox;
-        var vbox2;
-        var label2;
-  
+
         // Adds the comments retrieved from the database to the GUI
-        // Currently, the 'reply' and 'flag as inappropiate' buttons 
-        // do not do anything
-        ty = this.self(arguments).typeOf(result);
+        var ty = this.self(arguments).typeOf(result);
         if (ty == "array") 
         {
-          len = result.length;
+          var len = result.length;
           if (len != 0) 
           {
             for (var i = 0; i < result.length; ++i)
             {
-              newComment = result[i]["text"];
-              var treeId = result[i]["treeId"];
-              if (newComment != null)
-              {
-                commentAuthor = result[i]["visitor"];
-                commentTime = result[i]["timestamp"];
-                cpanel = new collapsablepanel.Panel(commentAuthor + ": [" + treeId + "] " + newComment);
-                cpanel.setGroup(radiogroup);
-
-                replyBtn = new qx.ui.form.Button("reply");
-                replyBtn.addListener(
-                  "execute", 
-                  function(e) 
-                  {
-                      alert("Pressed reply comment button for " + treeId);
-                      // Current string in comment text file is the reply
-                      // Perhaps in the future, replies should appear near reply button?
-                      var comment = commentInput.getValue(); 
-                      alert("Comment is " + comment);
-                      // Is the comment null or empty spaces?
-                      if ((comment != null) 
-                          && ((comment.replace(/\s/g, '')) != ""))
-                          // No: submit it
-                      {
-                          // Reply has non-null parent
-                          alert("Setting commentParent");
-                          // Next line error: TypeError: JSON.stringify cannot serialize cyclic structures.
-                          //alert("commentWrapper is " + JSON.stringify(commentWrapper));
-                          commentWrapper.setUserData("commentParent", treeId); 
-                          alert("Calling event listener");
-                          fsm.eventListener(e);
-                      }
-                      // Yes: clear input box and do nothing
-                      else
-                      {
-                          commentInput.setValue(null);
-                      }
-                  },
-                  fsm);
-
-                label = new qx.ui.basic.Label(newComment);
-                label.set(
-                  {
-                    rich : true,
-                    wrap : true,
-                    selectable: true // Allow user to select text
-                  });
-                label2 = new qx.ui.basic.Label("   posted: " + commentTime);
-                label2.set(
-                  {
-                    rich : true,
-                    wrap : true,
-                    selectable: true // Allow user to select text
-                  });
-                hbox = new qx.ui.container.Composite(new qx.ui.layout.HBox());
-                vbox2 = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-                hbox.add(replyBtn);
-                vbox2.add(label);
-                hbox.add(label2);
-                vbox2.add(hbox);
-                cpanel.add(vbox2);
-                allCommentsBox.addAt(cpanel, 0, null);
-                vbox.add(allCommentsBox);
-              }
+              (addCommentPanelClosure(result[i], commentInput))();
             }
           }
         }   
