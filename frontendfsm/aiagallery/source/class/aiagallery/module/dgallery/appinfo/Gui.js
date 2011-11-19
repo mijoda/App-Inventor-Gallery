@@ -71,6 +71,57 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
     },
 
     /**
+     * Convert raw time to human-readable, localized time stamp
+     *
+     * In locale en, this will look like "3:20 PM Nov 19 2011"
+     *
+     * @param time {Integer}
+     *   Raw time:  milliseconds since midnight, 1 Jan 1970
+     *
+     * @return {String}
+     *   Localized time stamp.
+     */
+    __readableTimestamp : function(rawTime)
+    {
+      // Locale-independent timestamp
+
+      // Default English format if no format string specified looks like this:
+      // November 18, 2011 23:15:51
+      // We want to, at least, shorten the month and remove the seconds.
+
+      // *Note*  For more fine-grained control, could use
+      // qx.locale.Date.getDateTimeFormat(canonical, fallback)
+      // Yields a localized format string
+      // - canonical: specify desired fields+lengths, in prescribed order
+      // - fallback: reasonable default if no localized version found
+      // ( I couldn't find info on supported canonical date/time formats in
+      // qooxdoo docs; mainly grepped through qooxdoo/tool/data/cldr/main )
+
+      // Some alternate formats that look nice in en:
+      // "Sat, Nov 19, 2011"
+      // var dateFormatString = qx.locale.Date.getDateTimeFormat("yMMMEd",
+      //                                                         "EEE, MMM d, y");
+      // "15:20" (hours in [0-23])
+      // var timeFormatString = qx.locale.Date.getTimeFormat("Hm", "HH:mm");
+
+      // Have to localize time and date separately, then combine
+
+      // Medium date format.  In en locale: "Nov 19, 2011"
+      var dateFormatString = qx.locale.Date.getDateFormat("medium");
+      // Short time format.  en: "3:20 PM"
+      var timeFormatString = qx.locale.Date.getTimeFormat("short");
+
+      // time+date format.  en: "3:20 PM Nov 19 2011"
+      var formatString = timeFormatString + " " + dateFormatString;
+      var format = new qx.util.format.DateFormat(formatString);
+      var date = new Date(rawTime);
+      // Timestamp.
+      var timeDateString = format.format(date);
+
+      return timeDateString;
+    },
+
+    /**
      * Create a panel containing a single comment to the GUI
      *
      * Comment will be shown as a 2-element vbox:
@@ -104,19 +155,11 @@ qx.Class.define("aiagallery.module.dgallery.appinfo.Gui",
           selectable : true
         });
 
-      // Timestamp, easier on the eye than the default.
-      // (which could use some additional tweaking, perhaps)
-      // FIXME: This needs to be internationalized. There are existing
-      // functions to do so.
-      var dateObj = new Date(commentTime); //not sure what to do here..
-      var dateString = dateObj.toDateString();
-      var timeString = dateObj.getHours() + ":" + dateObj.getMinutes();
-      var dateTimeString = dateString + " " + timeString + " ET";
-
       // 2nd line
+      var readableTS = this.__readableTimestamp(commentTime);
       var postedStringStart =
         '<span style="color:grey;font-size:75%">Posted: ';
-      var postedString = postedStringStart + dateTimeString + '</span>';
+      var postedString = postedStringStart + readableTS + '</span>';
       var postedStringLabel = new qx.ui.basic.Label(postedString);
       postedStringLabel.set(
         {
